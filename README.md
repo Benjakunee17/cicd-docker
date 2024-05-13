@@ -108,3 +108,104 @@ RUN cp -R /usr/local/tomcat/webapps.dist/* /usr/local/tomcat/webapps
 
 docker build -t demotomcat .
 docker run -d --name tomcat-server-pull -p 8083:8080 demotomcat
+
+
+Integrate Docker with Jenkins
+create a dockeradmin user
+install "Publish Over ssh" plugin
+add Dockerhost to jenkins "configure systems"
+
+/root
+cat /etc/passwd
+cat /etc/group
+sudo useradd dockeradmin
+sudo passwd dockeradmin
+(Benja_0983541544)
+
+sudo usermod -aG docker dockeradmin
+
+add ไปแล้วตั้งแต่แรกๆ
+id dockeradmin
+
+vi /etc/ssh/sshd_config
+search 
+/Password
+uncomment PasswordAuthentication yes
+
+service sshd reload
+
+Jenkins console
+install plugin "Publish Over SSH"
+
+manage jenkins
+system
+set
+Publish over SSH
+SSH Servers -> Add
+Name dockerhost
+Hostname 172.19.194.148 (ip-address EC2)
+Username dockeradmin
+
+Passphrase / Password
+Benja_0983541544
+password เดี๋ยวกันกับ dockeradmin
+
+และกลับไปที่ EC2
+dockeradmin@dockerhost: ssh-keygen
+
+แล้วกลับไปที่หน้า Jenkins console
+แล้ว test configuration
+apply and save
+
+Build item (Maven project)
+Source Code Management -> Git
+Poll SCM -> * * * * *
+Post-build Actions -> Send build artifacts over SSH
+Transfer Set
+Source files -> webapp/target/*.war
+Remove prefix -> webapp/target
+Remote directory -> /home/dockeradmin
+
+apply and save
+Build now
+
+
+back to EC2
+cd home/dockeradmin
+มันจะขึ้นตาม path 
+
+** Remote directory คือ pathที่จะวางไฟล์
+/root
+/root/opt
+mkdir docker
+chown -R dockeradmin:dockeradmin docker
+cd
+mv Dockerfile /opt/docker/
+chown -R dockeradmin:dockeradmin /opt/docker
+
+แก้ไข Dockerfile
+vi Dockerfile
+FROM tomcat:latest
+RUN cp -R /usr/local/tomcat/webapps.dist/* /usr/local/tomcat/webapps
+COPY ./*.war /usr/local/tomcat/webapps
+
+docker build -t tomcat-build:v1 .
+docker run -d --name tomcatv1 -p 8086:8080 tomcat-build:v1
+
+http://172.19.194.148:8086/
+http://172.19.194.148:8086/webapp/
+
+ถ้า แก้ไข code และ push ขึ้นมา ต้องสร้าง image ขึ้นมาใหม่ และรัน container ใหม่
+
+เลยแก้โดยการ ใส่ Exec command
+cd /opt/docker;
+docker build -t regapp:v1 .;
+docker run -d --name registerapp -p 8087:8080 regapp:v1;
+
+
+Exec command
+cd /opt/docker;
+docker build -t regapp:v1 .;
+docker stop registerapp;
+docker rm registerapp;
+docker run -d --name registerapp -p 8087:8080 regapp:v1;
